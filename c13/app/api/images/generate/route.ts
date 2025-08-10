@@ -11,6 +11,10 @@ export async function POST(req: NextRequest) {
     index?: number;
   };
   const { prompt = "high-contrast medical visualization of tumor evolution", index = 0 } = body || {};
+  const additionalContext = `
+  You must generate an image that is a clone of the original MRI image, with slight modifications to the lesion progression.
+  This should be according to the analysis summary prompt provided by the other agent.
+  `
 
   const client = getOpenAIClient();
   if (!client) {
@@ -28,7 +32,7 @@ export async function POST(req: NextRequest) {
     // Generate image via Images API; return as data URL so Next/Image can render immediately
     const result = await (client as any).images.generate({
       model: "gpt-image-1",
-      prompt,
+      prompt: `${prompt}\n\n${additionalContext}`,
       size: "1024x1024",
     });
 

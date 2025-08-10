@@ -45,10 +45,10 @@ export async function GET(req: NextRequest) {
         console.log("[analysis] no OPENAI_API_KEY, using fallback simulation");
         // Fallback local simulation when no API key is configured
         const chunks = [
-          "Analyzing hyperpolarized C13-pyruvate uptake... ",
-          "Segmenting probable lesions... ",
-          "Estimating metastatic burden... ",
-          "Preparing clinical summary... ",
+          "[FALLBACK] Analyzing hyperpolarized C13-pyruvate uptake... ",
+          "[FALLBACK] Segmenting probable lesions... ",
+          "[FALLBACK] Estimating metastatic burden... ",
+          "[FALLBACK] Preparing clinical summary... ",
         ];
         for (const chunk of chunks) {
           console.log("[analysis] sim chunk", { len: chunk.length });
@@ -247,7 +247,7 @@ export async function POST(req: NextRequest) {
         const send = (data: unknown) =>
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
 
-        send({ type: "token", content: "Initializing analysis... " });
+        send({ type: "token", content: "[INFO] Initializing analysis...\n\n" });
         const ping = setInterval(() => {
           try {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "ping" })}\n\n`));
@@ -256,10 +256,10 @@ export async function POST(req: NextRequest) {
 
         if (!client) {
           const chunks = [
-            "Analyzing hyperpolarized C13-pyruvate uptake... ",
-            "Segmenting probable lesions... ",
-            "Estimating metastatic burden... ",
-            "Preparing clinical summary... ",
+            "[FALLBACK] Analyzing hyperpolarized C13-pyruvate uptake... ",
+            "[FALLBACK] Segmenting probable lesions... ",
+            "[FALLBACK] Estimating metastatic burden... ",
+            "[FALLBACK] Preparing clinical summary... ",
           ];
           for (const c of chunks) {
             send({ type: "token", content: c });
@@ -290,7 +290,15 @@ export async function POST(req: NextRequest) {
                 {
                   type: "input_text",
                   text:
-                    "You are a radiology analysis agent for hyperpolarized C13-pyruvate MRI. Stream only prose analysis tokens. Do NOT output JSON in this turn.",
+                    `You are a standalone radiology analysis agent for MRI images.
+                    You act on an MRI image, it could be T1, T2, DWI. It could be a single slice or a 3D volume.
+                    It could be a hyperpolarized C13-pyruvate MRI image, PET-CT, or any other MRI image.
+                    You must attempt to identify the type of image, the type of contrast agent (if any), and the type of scan.
+                    You are analyzing oncology cases (control/healthy, benign, malignant, etc.).
+                    You must provide a verbose, clinically grounded analysis of the image and patient's condition, as well as 
+                    speculate on the stage of the disease (precancerous, Stage 0/CIS, Stage 1, etc.).
+                    Stream only prose analysis tokens.
+                    Do NOT output JSON in this turn.`,
                 },
               ],
             },
@@ -303,14 +311,15 @@ export async function POST(req: NextRequest) {
             },
           ] as any[];
 
-          if ((client as any).responses?.stream) {
-            const rspStream = await (client as any).responses.stream({ model: "gpt-5", input });
-            for await (const event of rspStream as any) {
-              if (event?.type === "response.output_text.delta") {
-                const delta = event?.delta as string;
-                if (delta) send({ type: "token", content: delta });
-              }
+        if ((client as any).responses?.stream) {
+          const rspStream = await (client as any).responses.stream({ model: "gpt-5", input });
+          for await (const event of rspStream as any) {
+            const t = String(event?.type || "");
+            const delta: unknown = (event as any)?.delta ?? (event as any)?.output_text_delta ?? (event as any)?.text ?? "";
+            if (typeof delta === "string" && delta.length) {
+              send({ type: "token", content: delta });
             }
+          }
           } else {
             const response = await (client as any).chat.completions.create({
               model: "gpt-5",
@@ -341,7 +350,18 @@ export async function POST(req: NextRequest) {
                   {
                     role: "user",
                     content: [
-                      { type: "input_text", text: "Summarize same case into the JSON fields strictly as specified." },
+                      { type: "input_text", text: `Summarize same case into the JSON fields strictly as specified.
+                      The JSON fields are:
+                      - title: a short title for the case
+                      - summary: a verbose summary of the case
+                      - prompts: an array of 3 prompts for the image generation engine, the image generation engine doesn't have 
+                      any context about the image. These prompts are meant to show potential progressions of the condition so
+                      the generations must be clones of the original image with slight modifications to the lesion progression.
+                      An example prompt could be: "Right adrenal lesion is slightly larger, but still within the normal range, do NOT make it larger than the <other region> (etc., etc.)
+                      
+                      The analysis the other agent provided is:
+                      ${job?.analysis}
+                      `},
                       ...(dataUrl ? [{ type: "input_image", image_url: dataUrl }] : []),
                     ],
                   },
@@ -354,7 +374,18 @@ export async function POST(req: NextRequest) {
                   {
                     role: "user",
                     content: [
-                      { type: "text", text: "Summarize same case into the JSON fields strictly as specified." },
+                      { type: "text", text: `Summarize same case into the JSON fields strictly as specified.
+                      The JSON fields are:
+                      - title: a short title for the case
+                      - summary: a verbose summary of the case
+                      - prompts: an array of 3 prompts for the image generation engine, the image generation engine doesn't have 
+                      any context about the image. These prompts are meant to show potential progressions of the condition so
+                      the generations must be clones of the original image with slight modifications to the lesion progression.
+                      An example prompt could be: "Right adrenal lesion is slightly larger, but still within the normal range, do NOT make it larger than the <other region> (etc., etc.)
+
+                      The analysis the other agent provided is:
+                      ${job?.analysis}
+                      ` },
                       ...(dataUrl ? [{ type: "image_url", image_url: { url: dataUrl } }] : []),
                     ],
                   },
