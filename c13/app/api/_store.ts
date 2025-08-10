@@ -2,6 +2,7 @@ export type JobState = {
   id: string;
   filename?: string;
   createdAt: number;
+  image?: { mimeType: string; b64: string };
   analysis?: {
     title?: string;
     summary?: string;
@@ -27,6 +28,13 @@ class InMemoryStore {
     const job = this.jobs.get(id);
     if (!job) return;
     job.analysis = analysis;
+    this.jobs.set(id, job);
+  }
+
+  setImage(id: string, image: { mimeType: string; b64: string }): void {
+    const job = this.jobs.get(id);
+    if (!job) return;
+    job.image = image;
     this.jobs.set(id, job);
   }
 }

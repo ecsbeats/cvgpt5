@@ -25,6 +25,7 @@ export default function Home() {
   const [evolutions, setEvolutions] = React.useState<string[]>([]);
 
   const currentEvolution = useCarousel(evolutions, 2500);
+  let promptsForGen: string[] | null = null;
 
   const handleDrop = React.useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -46,8 +47,18 @@ export default function Home() {
     const { jobId } = (await uploadRes.json()) as { jobId: string };
     setJobId(jobId);
 
-    // 2) Stream analysis
-    const streamRes = await fetch(`/api/analysis/stream?jobId=${jobId}`);
+    // 2) Stream analysis (POST with inline image to avoid store races)
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const streamRes = await fetch(`/api/analysis/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId, imageDataUrl: dataUrl }),
+    });
     const reader = streamRes.body?.getReader();
     const decoder = new TextDecoder();
     if (reader) {
@@ -69,18 +80,20 @@ export default function Home() {
             setFinalTitle(payload.title);
             setFinalSummary(payload.summary);
             setFinalPrompts(payload.prompts);
+            promptsForGen = Array.isArray(payload.prompts) ? payload.prompts : null;
           }
         }
       }
     }
 
     // 3) Kick off image generations sequentially with backend delay
+    const prompts = promptsForGen ?? [
+      "placeholder prompt a",
+      "placeholder prompt b",
+      "placeholder prompt c",
+    ];
     for (let i = 0; i < 3; i++) {
-      const prompt = (prev => prev[i])(finalPrompts.length ? finalPrompts : [
-        "placeholder prompt a",
-        "placeholder prompt b",
-        "placeholder prompt c",
-      ]);
+      const prompt = prompts[i] ?? prompts[0];
       const genRes = await fetch("/api/images/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

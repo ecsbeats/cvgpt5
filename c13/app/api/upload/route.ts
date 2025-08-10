@@ -15,9 +15,24 @@ export async function POST(req: NextRequest) {
   if (!file || typeof file !== "object" || !("name" in file)) {
     return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
   }
-  const filename = (file as File).name;
+  const blob = file as File;
+  const filename = blob.name;
 
   const job = store.createJob(filename);
+
+  // Convert to data URL (small hackathon-friendly storage)
+  const arrayBuffer = await blob.arrayBuffer();
+  const base64 = Buffer.from(arrayBuffer).toString("base64");
+  store.setImage(job.id, { mimeType: blob.type, b64: base64 });
+
+  // Debug logging
+  console.log("[upload] stored image", {
+    jobId: job.id,
+    filename,
+    mimeType: blob.type,
+    sizeBytes: (blob as any).size ?? arrayBuffer.byteLength,
+    b64Len: base64.length,
+  });
 
   // In a later step: persist file or upload to storage and enqueue processing
 
