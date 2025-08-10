@@ -34,9 +34,12 @@ export const C3Layout: React.FC<C3LayoutProps> = ({
 
       <HeaderRuler />
 
-      <div className="pt-20 pb-16 pl-12 pr-12 flex-1 overflow-hidden">
+      <div className="pt-20 pb-16 pl-12 pr-12 flex-1 overflow-hidden relative z-10">
         <div className="max-w-full mx-auto h-full overflow-hidden">{children}</div>
       </div>
+
+      {/* Global noise overlay over everything */}
+      <div aria-hidden className="noise-overlay" />
 
       {withFooter && (
         <div className="bg-neutral-950 border-t border-neutral-400 h-8 mx-8 mb-8">

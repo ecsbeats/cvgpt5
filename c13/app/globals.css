@@ -23,3 +23,18 @@
 @utility marquee-down {
   @keyframes marquee-down { 0% { transform: translateY(-100%) } 100% { transform: translateY(100%) } }
 }
+
+/* Noise texture utilities removed; only using global overlay */
+
+/* Full-page overlay over everything */
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  background-image: url('/noise.jpg');
+  background-size: 256px 256px;
+  background-repeat: repeat;
+  opacity: 0.05;
+  mix-blend-mode: color-dodge;
+  pointer-events: none;
+  z-index: 2147483647; /* above all app layers */
+}
