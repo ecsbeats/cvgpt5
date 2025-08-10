@@ -103,7 +103,13 @@ export default function Home() {
   };
 
   return (
-    <C3Layout topNews={[]} rightNews={[]} leftNews={[]} bottomNews={[]}>
+    <C3Layout
+      topNews={[]}
+      rightNews={[]}
+      leftNews={[]}
+      bottomNews={[]}
+      headerTitle={finalTitle || undefined}
+    >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full overflow-hidden">
         <div className="flex flex-col gap-8 overflow-hidden">
           <div
@@ -126,7 +132,7 @@ export default function Home() {
         <div className="flex flex-col gap-8 overflow-hidden">
           <div className="border border-neutral-400 bg-neutral-900/30 h-64 overflow-hidden">
             <div className="h-8 border-b border-neutral-500 px-3 flex items-center text-xs font-mono text-neutral-200">
-              TUMOR EVOLUTION (AUTO-CYCLE)
+              AI-GENERATED TUMOR EVOLUTION
             </div>
             <div className="relative h-[calc(100%-2rem)]">
               {currentEvolution ? (
@@ -152,7 +158,7 @@ export default function Home() {
             {finalTitle && (
               <div className="mt-4">
                 <div className="text-xs font-mono text-neutral-300">TITLE</div>
-                <div className="text-sm text-neutral-50">{finalTitle}</div>
+                <div className="text-xs text-neutral-50">{finalTitle}</div>
               </div>
             )}
             {finalSummary && (

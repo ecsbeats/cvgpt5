@@ -14,6 +14,7 @@ interface C3LayoutProps {
   bottomNews?: NewsItem[];
   withFooter?: boolean;
   footerText?: string;
+  headerTitle?: string;
 }
 
 export const C3Layout: React.FC<C3LayoutProps> = ({
@@ -24,6 +25,7 @@ export const C3Layout: React.FC<C3LayoutProps> = ({
   bottomNews = [],
   withFooter = false,
   footerText = "© 2025 CSX LABS - ALL RIGHTS RESERVED",
+  headerTitle,
 }) => {
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50 flex flex-col overflow-hidden">
@@ -32,7 +34,7 @@ export const C3Layout: React.FC<C3LayoutProps> = ({
       <StreamingRuler position="right" news={rightNews} disabled />
       <StreamingRuler position="bottom" news={bottomNews} disabled centerText="PROTECTED HEALTH INFORMATION" />
 
-      <HeaderRuler />
+      <HeaderRuler title={headerTitle} />
 
       <div className="pt-20 pb-16 pl-12 pr-12 flex-1 overflow-hidden relative z-10">
         <div className="max-w-full mx-auto h-full overflow-hidden">{children}</div>

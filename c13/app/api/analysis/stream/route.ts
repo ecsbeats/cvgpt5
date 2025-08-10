@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
       store.setAnalysis(jobId, {
         title: finalPayload.title,
         summary: finalPayload.summary,
-        prompts: finalPayload.prompts,
+        prompts: [...finalPayload.prompts],
       });
 
       send(finalPayload);
