@@ -35,7 +35,7 @@ export const C3Layout: React.FC<C3LayoutProps> = ({
       <HeaderRuler />
 
       <div className="pt-20 pb-16 pl-12 pr-12 flex-1 overflow-hidden">
-        <div className="max-w-6xl mx-auto h-full overflow-hidden">{children}</div>
+        <div className="max-w-full mx-auto h-full overflow-hidden">{children}</div>
       </div>
 
       {withFooter && (

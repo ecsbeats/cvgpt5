@@ -16,7 +16,12 @@ function useCarousel<T>(items: T[], intervalMs: number) {
 
 export default function Home() {
   const [uploaded, setUploaded] = React.useState<string | null>(null);
+  const [jobId, setJobId] = React.useState<string | null>(null);
   const [analysis, setAnalysis] = React.useState<string>("");
+  const [finalTitle, setFinalTitle] = React.useState<string>("");
+  const [finalSummary, setFinalSummary] = React.useState<string>("");
+  const [finalPrompts, setFinalPrompts] = React.useState<string[]>([]);
+  const [isLoading, setIsLoading] = React.useState(false);
   const [evolutions, setEvolutions] = React.useState<string[]>([]);
 
   const currentEvolution = useCarousel(evolutions, 2500);
@@ -27,15 +32,69 @@ export default function Home() {
     if (!file) return;
     const objectUrl = URL.createObjectURL(file);
     setUploaded(objectUrl);
-    // Fake model responses for hackathon demo
-    setAnalysis(
-      "Detected probable metastases in hepatic segment IVa and right adrenal region. Tumor burden estimate: moderate. Recommend PET-CT correlation and biopsy planning."
-    );
-    setEvolutions([
-      "/site-thumbnails/sam-altman-iit-interview.png",
-      "/products/riff.webp",
-      "/team/adam.jpeg",
-    ]);
+    setIsLoading(true);
+    setAnalysis("");
+    setFinalTitle("");
+    setFinalSummary("");
+    setFinalPrompts([]);
+    setEvolutions([]);
+
+    // 1) Create job via upload
+    const form = new FormData();
+    form.append("file", file);
+    const uploadRes = await fetch("/api/upload", { method: "POST", body: form });
+    const { jobId } = (await uploadRes.json()) as { jobId: string };
+    setJobId(jobId);
+
+    // 2) Stream analysis
+    const streamRes = await fetch(`/api/analysis/stream?jobId=${jobId}`);
+    const reader = streamRes.body?.getReader();
+    const decoder = new TextDecoder();
+    if (reader) {
+      let buffer = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || "";
+        for (const event of events) {
+          const line = event.trim();
+          if (!line.startsWith("data:")) continue;
+          const json = line.replace(/^data:\s*/, "");
+          const payload = JSON.parse(json);
+          if (payload.type === "token") {
+            setAnalysis((a) => a + payload.content);
+          } else if (payload.type === "final") {
+            setFinalTitle(payload.title);
+            setFinalSummary(payload.summary);
+            setFinalPrompts(payload.prompts);
+          }
+        }
+      }
+    }
+
+    // 3) Kick off image generations sequentially with backend delay
+    for (let i = 0; i < 3; i++) {
+      const prompt = (prev => prev[i])(finalPrompts.length ? finalPrompts : [
+        "placeholder prompt a",
+        "placeholder prompt b",
+        "placeholder prompt c",
+      ]);
+      const genRes = await fetch("/api/images/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId, prompt, index: i }),
+      });
+      const { imageUrl } = (await genRes.json()) as { imageUrl: string };
+      setEvolutions((arr) => {
+        const next = [...arr];
+        next[i] = imageUrl;
+        return next;
+      });
+    }
+
+    setIsLoading(false);
   }, []);
 
   const preventDefaults = (e: React.DragEvent<HTMLDivElement>) => {
@@ -71,10 +130,10 @@ export default function Home() {
             </div>
             <div className="relative h-[calc(100%-2rem)]">
               {currentEvolution ? (
-                <Image src={currentEvolution} alt="Evolution" fill className="object-cover" />
+                <Image src={currentEvolution} alt="Evolution" fill className="object-contain" />
               ) : (
                 <div className="h-full w-full flex items-center justify-center text-xs text-neutral-300 font-mono">
-                  AWAITING UPLOAD
+                  {isLoading ? "GENERATING IMAGERY..." : "AWAITING UPLOAD"}
                 </div>
               )}
             </div>
@@ -86,9 +145,22 @@ export default function Home() {
             ANALYSIS
           </div>
           <div className="p-4 h-[calc(100%-2rem)] overflow-auto">
-            <p className="text-xs text-neutral-50 leading-relaxed whitespace-pre-wrap">
-              {analysis || "Upload an MRI image to generate analysis."}
-            </p>
+            {isLoading && (
+              <div className="mb-3 text-[10px] text-neutral-400 font-mono">Analyzing... stand by</div>
+            )}
+            <p className="text-xs text-neutral-50 leading-relaxed whitespace-pre-wrap">{analysis || "Upload an MRI image to generate analysis."}</p>
+            {finalTitle && (
+              <div className="mt-4">
+                <div className="text-xs font-mono text-neutral-300">TITLE</div>
+                <div className="text-sm text-neutral-50">{finalTitle}</div>
+              </div>
+            )}
+            {finalSummary && (
+              <div className="mt-3">
+                <div className="text-xs font-mono text-neutral-300">SUMMARY</div>
+                <div className="text-xs text-neutral-200">{finalSummary}</div>
+              </div>
+            )}
           </div>
         </div>
       </div>
